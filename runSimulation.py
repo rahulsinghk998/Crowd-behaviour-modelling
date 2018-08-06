@@ -37,6 +37,35 @@ What are features to consider?
 """
 Help Sites: Checking point inside a rectangle: https://stackoverflow.com/questions/2752725/finding-whether-a-point-lies-inside-a-rectangle-or-not
 """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
 %matplotlib inline
 import math
 import pickle
@@ -80,7 +109,7 @@ while True:
 #Save the scan data with obstacle distance and angle
 #with open('scan_map', 'wb') as fp:
 #    pickle.dump(scan_map, fp)
-
+"""
 
 
 """

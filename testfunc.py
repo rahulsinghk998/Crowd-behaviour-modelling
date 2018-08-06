@@ -1,3 +1,56 @@
+################################################################################################################################
+
+
+
+################################################################################################################################
+# Plot unsimulated human paths #plotting the dynamic obstacles << need to see the function again
+#if human_path is not None:
+#    for i in range(len(agpath)):
+#        if len(agpath[i])>0 and agpath[i][-1][1]==cur_frame: #x,y should be <800,be in frame and not equal tosimulator agent
+#            human_path[i].append(agpath[i].pop()[2])         #store coord frame now
+#            xx = np.array(human_path[i]).T
+#            sub[0].text(xx[0][0], xx[1][0], str(i+1), fontsize=18)
+#            sub[0].plot(xx[0], xx[1], linewidth = 2)
+
+
+################################################################################################################################
+agent                  = agentsim.agent(start= np.array(getStartPos()), goal=np.array([500, 400])) #with
+agent.simulation_env   = envsim.museumSimulationEnvironment()
+human_data             = envsim.getActorTrajectory(plot = False)
+human_path, agent_path = envsim.agentTimeSynchronize(human_data, agent_num = 1)
+
+################################################################################################################################
+#drawing ellipse in matplotlib: https://matplotlib.org/api/_as_gen/matplotlib.patches.Ellipse.html
+
+from matplotlib.patches import Ellipse
+
+sub = []
+X = [ (1,2,1), (3,2,2), (3,2,4), (3,2,6) ]
+fig = plt.figure(figsize=(18,9))
+#ells = [Ellipse((1, 1), 4, 2, a) for a in angles]
+for nrows, ncols, plot_number in X:
+    f = fig.add_subplot(nrows, ncols, plot_number)
+    sub.append(f)
+
+agent.updateEnvironment()
+hum_pos = agent.simulation_env['humanpos']
+tmp = np.array(hum_pos)
+posx, posy   = tmp.T[0][1], tmp.T[1][1]
+length, width = tmp.T[0][4], tmp.T[1][4] 
+print(posx, "\n", posy)
+print(length, "\n", width)
+
+for i in range(len(hum_pos)):
+    ellipse = Ellipse((posx[i], posy[i]), length[i], width[i], angle=0.0)
+    ellipse.set_alpha(0.5)
+    #e.set_clip_box(a.bbox)
+    # Fix the ellipse color
+    ellipse.set_facecolor(np.random.rand(3))
+    sub[0].add_artist(ellipse)
+
+sub[0].set_xlim((0, 800))    
+sub[0].set_ylim((0, 800))
+plt.show()
 
 ################################################################################################################################
 sim_layout = envsim.museumSimulationEnvironment()
