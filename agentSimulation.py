@@ -56,7 +56,7 @@ class agent():
         #Also check for the feasible point as well before assigning the new position e.g. agents goes inside obstacles
         #Contraint the cur_position point can be a function as well <<
         max_arg            = 25 - np.argmax(self.prob_tot_map)
-        new_vec_angle      = mh.vectorToAngle(self.cur_vel) + max_arg*180.0/50.0
+        new_vec_angle      = mh.vectorToAngle(self.cur_vel) + max_arg*180.0/self.fov_partition
         new_vel_vec        = mh.angleToUnitVector(new_vec_angle)
         self.cur_vel       = new_vel_vec*self.avg_speed
         return self.cur_vel
@@ -71,45 +71,65 @@ class agent():
     def updateEnvironment(self):
         if len(self.simulation_env['agentpath'][1])>0:
             self.simulation_env['humanpos'] = []
-            agent_num, cur_frame, (pos_x, pos_y) = agent_cur_data = self.simulation_env['agentpath'][1].pop()
-            #Does other info like velocity and acceleration needs to be updated??
+            agent_num, cur_frame, (pos_x, pos_y) = self.simulation_env['agentpath'][1].pop()
+            
+            agent_frame   = np.array((agent_num, cur_frame))
+            agent_posxy   = np.array((pos_x, pos_y))
+            agent_dim     = self.getHumanDimension()
+            agent_cur_vel = self.getHumanVelocity(self.simulation_env['agentpath'][0])
+            agent_cur_acc = self.getHumanAcceleration()
+            
+            agent_cur_data = (agent_frame, agent_posxy, agent_cur_vel, agent_cur_acc, agent_dim)
             self.simulation_env['agentpath'][0].append(agent_cur_data)
-            cur_agent_data = np.array(((agent_num, cur_frame), (pos_x, pos_y), (0,0), (0,0), (40, 24)))
-            self.simulation_env['agentpos'] = cur_agent_data
+            self.simulation_env['agentpos'] = agent_cur_data
 
             # Run for all the human path available in the simualtion
             count = 0
             for i in range(len(self.simulation_env['humanpath'][0])):
-                if len(self.simulation_env['humanpath'][1][i])>0:
-                    num, frame, pos_xy = cur_frame_data = self.simulation_env['humanpath'][1][i].pop()
+                if len(self.simulation_env['humanpath'][1][count])>0:
+                    num, frame, pos_xy = cur_frame_data = self.simulation_env['humanpath'][1][count].pop()
                     if frame == cur_frame:
                         hum_frame = np.array((num, frame))
                         pos_xy    = np.array(pos_xy)
                         dimension = self.getHumanDimension()     # (width, length) = (40, 24)
-                        cur_vel   = self.getHumanVelocity()      # get last 10 frames of position 
-                        cur_acc   = self.getHumanAcceleration()  # get last 10 frames of position
+                        cur_vel   = self.getHumanVelocity(self.simulation_env['humanpath'][0][count])
+                        cur_acc   = self.getHumanAcceleration()  
                         
                         #[(human_num, frame_num), (pos_x, pos_y), (vel_x,vel_y), (acc_x, acc_y), (width, length)]
                         cur_frame_data = (hum_frame, pos_xy, cur_vel, cur_acc, dimension)
-                        self.simulation_env['humanpath'][0][i].append(cur_frame_data)
+                        self.simulation_env['humanpath'][0][count].append(cur_frame_data)
                         self.simulation_env['humanpos'].append(cur_frame_data)
-                        count = count + 1
+                        #<<<<>>>>>if pos_xy>(800) then remove the person from the environment<<<<>>>>>
                     else: 
-                        self.simulation_env['humanpath'][1][i].append(cur_frame_data)
+                        self.simulation_env['humanpath'][1][count].append(cur_frame_data)
+                    count = count + 1
+                else: #remove the agent from the simulation environment
+                    print("Human Agent Number: ", i, " has exited the simulation environment at frame number: ", cur_frame)
+                    self.simulation_env['humanpath'][1].remove(self.simulation_env['humanpath'][1][count])
+                    self.simulation_env['humanpath'][0].remove(self.simulation_env['humanpath'][0][count])
+                    count = count - 1 
 
-            return cur_frame, count
+            return cur_frame, count # current path and number of humans in environment
         else:
             self.simulation_env['humanpos'] = []
             print("No points left in the Agent Simulation Path")
             return None
 
 
-    def getHumanVelocity(self):
-        #convert into numpy
-        #get the position array info
-        #find delta
-        #average out delta
-        return np.array((0,0))
+    """
+    Slicing in lists: https://stackoverflow.com/questions/509211/understanding-pythons-slice-notation
+    Function: To get the velocity vector of the human from the list of points travelled
+    Input:    Human path list of points, number of points to consider for the velocity calculation
+    Output:   Velocity vector
+    """
+    def getHumanVelocity(self, path, pt_num = 2):
+        path_pt = len(path)
+        if path_pt<pt_num:
+            print("Number of elements in path of human X is less than required number of points")
+            return np.array((0,0)) #None
+        else:
+            vel_vec = (self.sim_freq/(pt_num-1))*(np.array(path[-1][1]) - np.array(path[-1*pt_num][1])) #vel = dis/time
+            return vel_vec
 
 
     def getHumanAcceleration(self):
@@ -144,7 +164,7 @@ class agent():
     """
     def scanAngleObstacleDistance(self, angle):
         angle_vector = mh.angleToUnitVector(angle)
-        obs_list1    = obs_list2 = obs_list3 = []
+        obs_list1    = obs_list2 = obs_list3 = obs_list4 = []
         #intersection with rectangle boundary i.e. outline which acts as reference for whole simulation
         ref_pt, ref_dist, ref_side = mh.rayIntersectionRect(self.simulation_env['outline'], self.cur_pos, angle_vector)  
 
@@ -175,9 +195,17 @@ class agent():
                         dist = mh.euclidDist(pt, self.cur_pos)
                     obs_list3.append((pt, dist, 3))
 
-            if fig=='human':
+            if fig=='humanpos':
                 for human in num:
-                    x = 0 #Do something with here
+                    frame, posxy, vel, acc, dim = human
+                    circle = (posxy, sum(dim)/2)
+                    ag_frame, ag_posxy, ag_vel, ag_acc, ag_dim = self.simulation_env['agentpos']
+                    pt    = mh.lineSegmentCircleIntersection(circle, ag_posxy, ref_pt)
+                    if pt is None: 
+                        pt, dist = ref_pt, ref_dist  # set to max value
+                    else: 
+                        dist = mh.euclidDist(ag_posxy, circle[0]) 
+                    obs_list4.append((pt, dist, 2))
 
         concat_obs_list  = obs_list1 + obs_list2 + obs_list3
         concat_obs_array = np.array(concat_obs_list).T

@@ -1,3 +1,4 @@
+import cv2
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,22 +15,23 @@ import mathHelper as mh
 Drawing ellipse in matplotlib: https://matplotlib.org/api/_as_gen/matplotlib.patches.Ellipse.html
 Mutliple Plots: https://jakevdp.github.io/PythonDataScienceHandbook/04.08-multiple-subplots.html
                 https://www.python-course.eu/matplotlib_multiple_figures.php
+Arrow plot :    https://matplotlib.org/api/_as_gen/matplotlib.pyplot.arrow.html
 Line segment plot: https://stackoverflow.com/questions/36470343/how-to-draw-a-line-with-matplotlib/36479941
 
 Function: Plot the simulation
 Input: Agent array, obstacle list, reference figure, probability weight values in 3x1 form
 """
-def plotSimulation(agent, path1):  #path1 can also be removed
+def plotSimulation(agent, path1, warped):  #path1 can also be removed
     #display.clear_output(wait=True)
-    #Initialization of the figure << which i guess can be made a bit different
+    # Initialization of the figure << which i guess can be made a bit different
     sub = []
-    X = [ (1,2,1), (3,2,2), (3,2,4), (3,2,6) ]
-    fig = plt.figure(figsize=(18,9))
+    X = [ (2,2,1), (6,2,2), (6,2,4), (6,2,6), (2,2,3), (6,2,8), (6,2,10), (6,2,12)]
+    fig = plt.figure(figsize=(18,18))
     for nrows, ncols, plot_number in X:
         f = fig.add_subplot(nrows, ncols, plot_number)
         sub.append(f)
         
-    #Plot the obstacle environment of rectangles as static obstacles
+    # Plot the obstacle environment of rectangles as static obstacles
     for fig, num in agent.simulation_env.items():
         if fig=='rect':    
             for startpt, length, width in num:
@@ -44,17 +46,19 @@ def plotSimulation(agent, path1):  #path1 can also be removed
                 line = plt.Line2D((pt1[0], pt2[0]), (pt1[1], pt2[1]), lw=width)
                 sub[0].add_line(line)
                 
-    # make the plot as (800 x 800)
+    # Make the plot as (800 x 800)
     sub[0].set_xticks(np.arange(0, 800, 20))
     sub[0].set_yticks(np.arange(0, 800, 20))
     sub[0].set_xlim((0,800))    
     sub[0].set_ylim((0,800))
     sub[0].grid(True, linewidth=.2)
     
-    for comp_hum_path in agent.simulation_env['humanpath'][0]:   # iterate through travelled human path
+    # Plot the path travelled by the humans in the environment
+    # Iterate through travelled human path
+    for comp_hum_path in agent.simulation_env['humanpath'][0]:
         if len(comp_hum_path)>0:
             path = np.array(comp_hum_path).T      #path is 3-D array # use print(path) to see
-            sub[0].text(path[0][1][0], path[1][1][0], str(int(path[0][0][0])), fontsize=18)
+            sub[0].text(path[0][1][0], path[1][1][0], str(int(path[0][0][0])), fontsize=12)
             sub[0].plot(path[0][1], path[1][1], linewidth = 2)
 
     # Plot various types/forms of agent path
@@ -64,20 +68,25 @@ def plotSimulation(agent, path1):  #path1 can also be removed
     # Plot the human as ellipse with their respective position and orientation
     hum_pos = agent.simulation_env['humanpos']
     tmp = np.array(hum_pos)
-    posx, posy   = tmp.T[0][1], tmp.T[1][1]
-    length, width = tmp.T[0][4], tmp.T[1][4]      #print(posx, "\n", posy)      #print(length, "\n", width)
+    posx, posy    = tmp.T[0][1], tmp.T[1][1]
+    length, width = tmp.T[0][4], tmp.T[1][4]
+    velx, vely    = tmp.T[0][2]/10.0, tmp.T[1][2]/10.0
     for i in range(len(hum_pos)):
-        ellipse = Ellipse((posx[i], posy[i]), length[i], width[i], angle=0.0)
+        angle = mh.vectorToAngle((velx[i], vely[i])) + 90
+        ellipse = Ellipse((posx[i], posy[i]), length[i], width[i], angle=angle)    
         ellipse.set_alpha(0.5)                    #e.set_clip_box(a.bbox)
         ellipse.set_facecolor(np.random.rand(3))
         sub[0].add_artist(ellipse)
+        sub[0].arrow(posx[i], posy[i], velx[i], vely[i], head_width=10, head_length=10, fc='k', ec='k')
     
-    #print(agent.simulation_env['agentpos'])
+    # Plot the simulating agent 
     agent_pos = agent.simulation_env['agentpos']
-    ellipse = Ellipse(agent_pos[1], agent_pos[4][0], agent_pos[4][1], angle=0.0)
+    agent_ang = mh.vectorToAngle(agent_pos[2])
+    ellipse = Ellipse(agent_pos[1], agent_pos[4][0], agent_pos[4][1], angle=agent_ang) 
     ellipse.set_alpha(0.5)                    #e.set_clip_box(a.bbox)
     ellipse.set_facecolor(np.random.rand(3))
     sub[0].add_artist(ellipse)
+    sub[0].arrow(agent_pos[1][0], agent_pos[1][1], agent_pos[2][0]/10, agent_pos[2][1]/10, head_width=10, head_length=10, fc='k', ec='k')
 
     #if path2 is not None:
     #    sub[0].plot(np.array(path2).T[0], np.array(path2).T[1])     #smoothened (line segments) path obtained from RRT algorithm
@@ -93,6 +102,7 @@ def plotSimulation(agent, path1):  #path1 can also be removed
     sub[2].plot(agent.prob_goal_map)
     sub[2].plot(agent.prob_vel_map)
     sub[3].plot(agent.prob_tot_map)
+    sub[4].imshow(cv2.flip(warped, 1))
     
     #plt.pause(0.01)
     plt.show()

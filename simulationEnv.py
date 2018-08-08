@@ -67,8 +67,8 @@ def museumSimulationEnvironment(datafile=0, agent_num = 1, plot = False):
     agent_path_travel      = []
     
     # Humans Obstacles: [(human_num, frame_num, (pos_x, pos_y), (velocity_x,velocity_y), (acc_x, acc_y), (width -, length |))]
-    humanpath = [human_path_travel, human_path_remain]
-    agentpath = [agent_path_travel, agent_path_remain]
+    humanpath = [human_path_travel, human_path_remain] # both have different structure--> check agentSimulation.py file  
+    agentpath = [agent_path_travel, agent_path_remain] # both have different structure--> check agentSimulation.py file
     # Store current position used for plotting the human current position
     humanpos  = []
     agentpos  = []
